@@ -41,6 +41,15 @@ public class Producer {
     /**
      * 实现功能为读取文件夹路径，将文件夹下文件进行按行读取为字符串
      * 之后以data为主题进行发送，没有根据eventDate进行判断发送
+     * public class ProducerRecord<K, V> {
+     *     private final String topic; //目标topic
+     *     private final Integer partition; //目标partition
+     *     private final Headers header;//消息头信息
+     *     private final K key;   //消息key
+     *     private final V value; //消息体
+     *     private final Long timestamp; //消息时间戳
+     *     //省略构造方法与成员方法
+     * }
      */
     public void run() {
         File dir = new File(path);
@@ -56,7 +65,7 @@ public class Producer {
                     ProducerRecord<String, String> record = new ProducerRecord<>("data", br.readLine());
                     producer.send(record);
                     num_message++;
-                    if (num_message%2000000 == 0){
+                    if (num_message%20000 == 0){
                         System.out.println("已经发送的信息数量"+num_message);
                     }
                 }

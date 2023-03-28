@@ -3,20 +3,25 @@ package org.example;
 
 import com.alibaba.fastjson.JSONObject;
 import org.apache.flink.api.common.functions.MapFunction;
-import org.apache.flink.api.common.serialization.SimpleStringSchema;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
+import org.apache.flink.streaming.connectors.kafka.KafkaDeserializationSchema;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.config.SaslConfigs;
+import org.apache.kafka.common.header.Header;
 import org.example.clickHouseUtil.MyClickHouseUtil;
 import org.example.pojo.Data_mx;
 import org.example.pojo.Data_pojo;
 
 
-
+import java.io.FileOutputStream;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.Properties;
 
 /**
@@ -46,7 +51,36 @@ public class FlinkConsumer {
         props.put(SaslConfigs.SASL_JAAS_CONFIG,
                 "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"student\" password=\"nju2023\";");
         String topic = "data";
-        this.consumer = new FlinkKafkaConsumer<>(topic, new SimpleStringSchema(), props);
+        // 用于解析record类型数据，其实可以单独写，懒了（
+        this.consumer = new FlinkKafkaConsumer<>(topic, new KafkaDeserializationSchema<String>() {
+            @Override
+            public boolean isEndOfStream(String s) {
+                return false;
+            }
+
+            @Override
+            public String deserialize(ConsumerRecord<byte[], byte[]> consumerRecord) throws Exception {
+                Header groupIdHeader =  consumerRecord.headers().lastHeader("groupId");
+                if (Objects.nonNull(groupIdHeader)) {
+                    byte[] groupId = groupIdHeader.value();
+                    // 此处yourGroupId替换成你们组的组号
+                    if(Arrays.equals("18".getBytes(), groupId)){
+                        // 额外记录这条数据
+                        try(FileOutputStream outputStream = new FileOutputStream("./specialMessage.txt", true)) {
+                            outputStream.write(consumerRecord.value());
+                        }catch (Exception e){
+                            e.printStackTrace();
+                        }
+                    }
+                }
+                return Arrays.toString(consumerRecord.value());
+            }
+
+            @Override
+            public TypeInformation<String> getProducedType() {
+                return null;
+            }
+        }, props);
     }
 
     /**
